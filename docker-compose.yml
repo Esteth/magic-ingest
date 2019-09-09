@@ -1,0 +1,29 @@
+version: '3.1'
+services:
+  magic-js:
+    depends_on:
+     - db
+    build: '.'
+    restart: unless-stopped
+    ports:
+     - "8080:6669"
+    secrets:
+     - db_password
+    environment:
+      PGUSER: postgres
+      PGHOST: db
+      PGDATABASE: postgres
+      PGPASSFILE: /run/secrets/db_password
+  db:
+    image: postgres
+    volumes:
+      - /volume1/homes/esteth/magic-js/db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    secrets:
+     - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+
+secrets:
+  db_password:
+    file: db_password.txt

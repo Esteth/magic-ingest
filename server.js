@@ -1,13 +1,13 @@
 'use strict';
 
-const {BigQuery} = require('@google-cloud/bigquery');
 const express = require('express');
+const { Pool } = require('pg');
 const ThemeParks = require('themeparks');
 
 ThemeParks.Settings.Cache = "/tmp/themeparks.db";
 
 const app = express();
-const bigQuery = new BigQuery();
+const pool = new Pool();
 const parks = [
     new ThemeParks.Parks.WaltDisneyWorldMagicKingdom(),
     new ThemeParks.Parks.WaltDisneyWorldEpcot(),
@@ -15,52 +15,44 @@ const parks = [
     new ThemeParks.Parks.WaltDisneyWorldAnimalKingdom()
 ];
 
+pool.on('error', (err, client) => {
+    console.error('Unexpected error on idle client', err)
+    process.exit(-1)
+  })  
+
 app.get('/', async (req, res, next) => {
     try {
-        await Promise.all(parks.map(async (park, i) => {
-            const waitTimes = await park.GetWaitTimes();
-            const attractions = waitTimes.map((attraction) => {
-                return {
-                    id: attraction.id,
-                    name: attraction.name,
-                    park_id: i
-                };
-            });
-            await bigQuery
-                .dataset('wait_times')
-                .table('attractions')
-                .insert(attractions)
-        }));
-        res.send([].concat.apply([], parkWaitTimes));
-    } catch(e) {
-        next(e)
-    }
-});
-
-app.get('/consolidate', async (req, res, next) => {
-    try {
-        await Promise.all(parks.map(async (park, i) => {
-            const waitTimes = await park.GetWaitTimes();
-            const attractions = waitTimes.map((attraction) => {
-                return {
-                    id: attraction.id,
-                    name: attraction.name,
-                    park_id: i
-                };
-            });
-            const newIds = 
-                await bigQuery
-                    .dataset('wait_times')
-                    .query(
-                        `SELECT
-                            id
-                        FROM
-                            attractions
-                        WHERE id IN (${attractions.map((a) => a.id).join(',')})`) 
-        }));
         
-        bigQuery.dataset('wait_times').table('attractions').insert()
-        res.send([].concat.apply([], parkWaitTimes));
+        const parkTimes = await Promise.all(parks.map(async (park, i) => {
+            const waitTimes = await park.GetWaitTimes();
+            const attractions = waitTimes.map((attraction) => {
+                return {
+                    id: attraction.id,
+                    name: attraction.name,
+                    park_id: i
+                };
+            });
+            const saveTimes = waitTimes.map((attraction) => {
+                return {
+                    attraction_id: attraction.id,
+                    timestamp: Date.parse(attraction.lastUpdate),
+                    wait_time: attraction.waitTime,
+                    operating: attraction.status == 'Operating'
+                }
+            })
+
+            dbClient = await pool.connect();
+            try {
+                const dbRes = await dbClient.query('SELECT $1::text as message', ['Hello world!']);
+                console.log(dbRes.rows);
+            } finally {
+                dbClient.release();
+                next(e);
+            }
+
+            return saveTimes;
+        }));
+        res.send([].concat.apply([], parkTimes));
     } catch(e) {
         next(e)
     }

@@ -10,8 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google-cloud/bigquery": "^4.1.8",
     "express": "^4.17.1",
+    "pg": "^7.12.1",
     "themeparks": "^5.1.15"
   }
 }
