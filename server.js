@@ -1,13 +1,16 @@
 'use strict';
 
 const express = require('express');
+const fs = require('fs');
 const { Pool } = require('pg');
 const ThemeParks = require('themeparks');
 
 ThemeParks.Settings.Cache = "/tmp/themeparks.db";
 
 const app = express();
-const pool = new Pool();
+const pool = new Pool({
+    password: fs.readFileSync(process.env.PGPASSFILE)
+});
 const parks = [
     new ThemeParks.Parks.WaltDisneyWorldMagicKingdom(),
     new ThemeParks.Parks.WaltDisneyWorldEpcot(),
@@ -41,13 +44,12 @@ app.get('/', async (req, res, next) => {
                 }
             })
 
-            dbClient = await pool.connect();
+            const dbClient = await pool.connect();
             try {
                 const dbRes = await dbClient.query('SELECT $1::text as message', ['Hello world!']);
-                console.log(dbRes.rows);
+                console.log(dbRes.rows[0]);
             } finally {
                 dbClient.release();
-                next(e);
             }
 
             return saveTimes;
