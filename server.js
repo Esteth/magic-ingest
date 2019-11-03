@@ -25,7 +25,6 @@ pool.on('error', (err, client) => {
 
 app.get('/', async (req, res, next) => {
     try {
-        
         const parkTimes = await Promise.all(parks.map(async (park, i) => {
             const waitTimes = await park.GetWaitTimes();
             const attractions = waitTimes.map((attraction) => {
@@ -38,7 +37,7 @@ app.get('/', async (req, res, next) => {
             const saveTimes = waitTimes.map((attraction) => {
                 return {
                     attraction_id: attraction.id,
-                    timestamp: Date.parse(attraction.lastUpdate),
+                    timestamp: attraction.lastUpdate,
                     wait_time: attraction.waitTime,
                     operating: attraction.status == 'Operating'
                 }
@@ -46,8 +45,16 @@ app.get('/', async (req, res, next) => {
 
             const dbClient = await pool.connect();
             try {
-                const dbRes = await dbClient.query('SELECT $1::text as message', ['Hello world!']);
-                console.log(dbRes.rows[0]);
+                await Promise.all(attractions.map(attraction => {
+                    return dbClient.query(
+                        'INSERT INTO attractions(id, name) VALUES ($1, $2) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name ;',
+                        [attraction.id, attraction.name]);
+                }));
+                await Promise.all(saveTimes.map(waitTime => {
+                    return dbClient.query(
+                        'INSERT INTO wait_times(attraction_id, timestamp, wait_time, operating) VALUES ($1, $2, $3, $4) ON CONFLICT(attraction_id, timestamp) DO NOTHING;',
+                        [waitTime.attraction_id, waitTime.timestamp, waitTime.wait_time, waitTime.operating]);
+                }))
             } finally {
                 dbClient.release();
             }
