@@ -1,1 +1,1 @@
-*/5 * * * * wget http://magic-js:8080 > /proc/1/fd/1 2>/proc/1/fd/2
+*/5 * * * * wget http://magic-js:8080 > /proc/1/fd/1 2> /proc/1/fd/2
